@@ -1,0 +1,53 @@
+----- LINK GOOGLE SHEET -----
+
+https://docs.google.com/spreadsheets/d/1LEZJEcTIdjDr2k6JAbietNUBadBaPV5pNx4H1dJHenk/edit?gid=2035383163#gid=2035383163
+
+
+----- CODE APPS SCRIPT -----
+
+function doGet(e) {
+    var ss = SpreadsheetApp.openById("1LEZJEcTIdjDr2k6JAbietNUBadBaPV5pNx4H1dJHenk"); //Truy cập Google Sheet bằng ID.
+    var sheet1 = ss.getSheetByName("Sheet1"); // Sheet chứa danh sách ID thẻ
+    var sheet2 = ss.getSheetByName("Sheet2"); // Sheet lưu lịch sử quẹt thẻ
+    var timezone = "Asia/Ho_Chi_Minh"; // lấy thời gian khu vực HCM
+
+    if (!sheet1 || !sheet2) { //Nếu một trong hai bảng không tồn tại → trả về lỗi JSON (Sheet not found!).
+        return ContentService.createTextOutput(JSON.stringify({ error: "Sheet not found!" }))
+            .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var data = sheet1.getDataRange().getValues(); // Lấy dữ liệu từ Sheet1
+    var cardID = e.parameter.cardID; // Lấy cardID từ URL
+    var status = e.parameter.status || "unknown"; // Lấy status từ URL, mặc định là "unknown" nếu không có
+
+    if (!cardID) { //Nếu không có cardID → trả về lỗi JSON (Missing cardID).
+        return ContentService.createTextOutput(JSON.stringify({ error: "Missing cardID" })) 
+            .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    for (var i = 1; i < data.length; i++) { // Duyệt qua dữ liệu, bỏ qua hàng tiêu đề
+        if (data[i][0] == cardID) { // Nếu tìm thấy cardID trong Sheet1
+            var name = data[i][1]; // Lấy tên từ cột B
+            saveToSheet2(sheet2, cardID, name, status, timezone); // Ghi dữ liệu vào Sheet2, thêm status
+            return ContentService.createTextOutput(JSON.stringify({ name: name })) //trả về JSON { name: tên người }.
+                .setMimeType(ContentService.MimeType.JSON);
+        }
+    }
+    
+    // Nếu không tìm thấy cardID, vẫn ghi vào Sheet2 với status
+    saveToSheet2(sheet2, cardID, "Unknown", status, timezone);
+    return ContentService.createTextOutput(JSON.stringify({ name: "Unknown" }))
+        .setMimeType(ContentService.MimeType.JSON);
+}
+
+function saveToSheet2(sheet, cardID, name, status, timezone) { //Lấy ngày giờ hiện tại theo múi giờ "Asia/Ho_Chi_Minh".
+    var currDate = new Date();
+    var currTime = Utilities.formatDate(currDate, timezone, 'HH:mm:ss');
+    var nextRow = sheet.getLastRow() + 1; //Tìm dòng tiếp theo để ghi dữ liệu mới.
+    
+    sheet.getRange("A" + nextRow).setValue(cardID);   // Ghi ID thẻ vào cột A
+    sheet.getRange("B" + nextRow).setValue(name);     // Ghi tên vào cột B
+    sheet.getRange("C" + nextRow).setValue(currDate); // Ghi ngày giờ vào cột C
+    sheet.getRange("D" + nextRow).setValue(currTime); // Ghi thời gian vào cột D
+    sheet.getRange("E" + nextRow).setValue(status);   // Ghi trạng thái (in/out) vào cột E
+}
